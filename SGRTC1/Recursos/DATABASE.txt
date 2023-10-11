@@ -1,0 +1,254 @@
+CREATE DATABASE SGRTC1;
+GO
+
+USE SGRTC1;
+
+-- Crear tabla PersonalReparacion
+CREATE TABLE PersonalReparacion (
+    PersonalID INT PRIMARY KEY,
+    Nombre VARCHAR(50),
+    Apellido VARCHAR(50),
+    Cargo VARCHAR(50),
+    Usuario VARCHAR(50) UNIQUE,
+    Contrasena VARCHAR(100)
+);
+
+-- Crear tabla Celular
+CREATE TABLE Celular (
+    CelularID INT PRIMARY KEY,
+    Marca VARCHAR(50),
+    Modelo VARCHAR(50),
+    IMEI VARCHAR(15) UNIQUE,
+    Estado VARCHAR(20)
+);
+
+-- Crear tabla Refaccion
+CREATE TABLE Refaccion (
+    RefaccionID INT PRIMARY KEY,
+    CelularID INT,
+    Nombre VARCHAR(50),
+    Precio DECIMAL(10, 2),
+    FOREIGN KEY (CelularID) REFERENCES Celular(CelularID) ON DELETE CASCADE
+);
+
+-- Crear tabla Usuario
+CREATE TABLE Usuario (
+    UsuarioID INT PRIMARY KEY,
+    Nombre VARCHAR(50),
+    Apellido VARCHAR(50),
+    Direccion VARCHAR(100),
+    Email VARCHAR(100)
+);
+
+-- Crear tabla DetalleReparacion
+CREATE TABLE DetalleReparacion (
+    DetalleReparacionID INT PRIMARY KEY,
+    Folio INT,
+    CelularID INT,
+    UsuarioID INT,
+    Monto DECIMAL(10, 2),
+    FechaReparacion DATETIME,
+    FOREIGN KEY (CelularID) REFERENCES Celular(CelularID),
+    FOREIGN KEY (UsuarioID) REFERENCES Usuario(UsuarioID)
+);
+
+-- Crear tabla BitacoraInicioSesion
+CREATE TABLE BitacoraInicioSesion (
+    BitacoraID INT PRIMARY KEY IDENTITY(1,1),
+    PersonalID INT,
+    FechaInicioSesion DATETIME,
+    CONSTRAINT FK_PersonalID FOREIGN KEY (PersonalID) REFERENCES PersonalReparacion(PersonalID)
+);
+
+-- Insertar datos en las tablas
+
+-- Inserciones en la tabla Celular
+INSERT INTO Celular (CelularID, Marca, Modelo, IMEI, Estado)
+VALUES (1, 'Samsung', 'Galaxy S21', '123456789012345', 'En Reparacion'),
+       (2, 'Apple', 'iPhone 12', '987654321098765', 'Reparado'),
+       (3, 'Google', 'Pixel 6', '567890123456789', 'En Reparacion');
+
+-- Inserciones en la tabla Refaccion
+INSERT INTO Refaccion (RefaccionID, CelularID, Nombre, Precio)
+VALUES (1, 1, 'Pantalla', 100.00),
+       (2, 1, 'Bateria', 50.00),
+       (3, 2, 'Camara Trasera', 75.00),
+       (4, 3, 'Botones Volumen', 10.00);
+
+-- Inserciones en la tabla Usuario
+INSERT INTO Usuario (UsuarioID, Nombre, Apellido, Direccion, Email)
+VALUES (1, 'Juan', 'Perez', 'Calle 123, Ciudad', 'juan@example.com'),
+       (2, 'Marta', 'Gonzalez', 'Avenida XYZ, Pueblo', 'maria@example.com'),
+       (3, 'Pedro', 'Lopez', 'Carrera 456, Villa', 'pedro@example.com');
+
+-- Inserciones en la tabla DetalleReparacion
+INSERT INTO DetalleReparacion (DetalleReparacionID, Folio, CelularID, UsuarioID, Monto, FechaReparacion)
+VALUES (1, 101, 1, 1, 150.00, '2023-10-01 10:00:00'),
+       (2, 102, 2, 2, 125.00, '2023-10-02 15:30:00'),
+       (3, 103, 3, 3, 75.00, '2023-10-03 09:15:00'),
+       (4, 104, 1, 2, 200.00, '2023-10-04 14:45:00');
+
+-- Inserciones en la tabla PersonalReparacion
+INSERT INTO PersonalReparacion (PersonalID, Nombre, Apellido, Cargo, Usuario, Contrasena)
+VALUES (1, 'Marco', 'Gonzalez', 'Administrador', 'MAGJ', 'contrasena123');
+
+-- Verificar los datos insertados
+SELECT * FROM Celular;
+SELECT * FROM Refaccion;
+SELECT * FROM Usuario;
+SELECT * FROM DetalleReparacion;
+SELECT * FROM PersonalReparacion;
+SELECT * FROM BitacoraInicioSesion;
+
+
+-- Creacion de los procediminetos almacenados -- 
+
+-- SP Alta Celular
+
+CREATE PROCEDURE sp_AltaCelular
+    @CelularID INT,
+    @Marca VARCHAR(50),
+    @Modelo VARCHAR(50),
+    @IMEI VARCHAR(15),
+    @Estado VARCHAR(20)
+AS
+BEGIN
+    BEGIN TRY
+        -- Intentar insertar un nuevo celular en la tabla Celular
+        INSERT INTO Celular (CelularID, Marca, Modelo, IMEI, Estado)
+        VALUES (@CelularID, @Marca, @Modelo, @IMEI, @Estado);
+
+        PRINT 'Se ha dado de alta un nuevo celular.';
+    END TRY
+    BEGIN CATCH
+        -- En caso de error, imprimir mensaje de error y hacer un ROLLBACK
+        PRINT 'Se produjo un error al intentar dar de alta el celular.';
+        ROLLBACK TRANSACTION;
+    END CATCH
+END;
+
+-- SP MOD Celular
+
+CREATE PROCEDURE sp_ModificarCelular
+    @CelularID INT,
+    @Marca VARCHAR(50),
+    @Modelo VARCHAR(50),
+    @IMEI VARCHAR(15),
+    @Estado VARCHAR(20)
+AS
+BEGIN
+    BEGIN TRY
+        -- Iniciar una transacción
+        BEGIN TRANSACTION;
+
+        -- Verificar si el celular con el CelularID proporcionado existe
+        IF EXISTS (SELECT 1 FROM Celular WHERE CelularID = @CelularID)
+        BEGIN
+            -- Actualizar la información del celular
+            UPDATE Celular
+            SET Marca = @Marca,
+                Modelo = @Modelo,
+                IMEI = @IMEI,
+                Estado = @Estado
+            WHERE CelularID = @CelularID;
+
+            PRINT 'La información del celular se ha actualizado correctamente.';
+        END
+        ELSE
+        BEGIN
+            PRINT 'El celular con CelularID ' + CAST(@CelularID AS VARCHAR) + ' no existe.';
+        END
+
+        -- Cometer la transacción
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        -- En caso de error, imprimir mensaje de error y hacer un ROLLBACK
+        PRINT 'Se produjo un error al intentar modificar la información del celular.';
+        ROLLBACK TRANSACTION;
+    END CATCH
+END;
+
+-- SP Eliminar Celular
+
+CREATE PROCEDURE sp_EliminarCelular
+    @CelularID INT
+AS
+BEGIN
+    BEGIN TRY
+        -- Iniciar una transacción
+        BEGIN TRANSACTION;
+
+        -- Verificar si el celular con el CelularID proporcionado existe
+        IF EXISTS (SELECT 1 FROM Celular WHERE CelularID = @CelularID)
+        BEGIN
+            -- Eliminar el celular de la tabla Celular
+            DELETE FROM Celular WHERE CelularID = @CelularID;
+
+            PRINT 'Se ha eliminado el celular con CelularID ' + CAST(@CelularID AS VARCHAR) + '.';
+        END
+        ELSE
+        BEGIN
+            PRINT 'El celular con CelularID ' + CAST(@CelularID AS VARCHAR) + ' no existe en la base de datos.';
+        END
+
+        -- Cometer la transacción
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        -- En caso de error, imprimir mensaje de error y hacer un ROLLBACK
+        PRINT 'Se produjo un error al intentar eliminar el celular.';
+        ROLLBACK TRANSACTION;
+    END CATCH
+END;
+
+-- SP Logueo
+
+ALTER PROCEDURE IniciarSesionPersonal
+    @Usuario VARCHAR(50),
+    @Contraseña VARCHAR(100)
+AS
+BEGIN
+    BEGIN TRY
+        -- Iniciar una transacción
+        BEGIN TRANSACTION;
+
+        DECLARE @PersonalID INT
+
+        -- Verificar si las credenciales son válidas
+        SELECT @PersonalID = PersonalID
+        FROM PersonalReparacion
+        WHERE Usuario = @Usuario AND Contrasena = @Contraseña
+		
+		-- Retornamos 1 si es exitoso o 0 si no lo es
+		Select top 1 COUNT(*) From PersonalReparacion WHERE Usuario = @Usuario AND Contrasena = @Contraseña
+        
+		-- Si las credenciales son válidas, permitir el acceso y registrar en la bitácora
+        IF @PersonalID IS NOT NULL
+        BEGIN
+            -- Acceso permitido, imprimir mensaje de inicio de sesión exitoso
+            PRINT 'Inicio de sesión exitoso para el usuario ' + @Usuario
+
+            -- Registrar el inicio de sesión en la bitácora
+            INSERT INTO BitacoraInicioSesion (PersonalID, FechaInicioSesion)
+            VALUES (@PersonalID, GETDATE()) -- Registra la fecha y hora actual
+
+            -- Puedes agregar acciones adicionales aquí, como registrar la hora de inicio de sesión.
+        END
+        ELSE
+        BEGIN
+            -- Acceso denegado, imprimir mensaje de inicio de sesión fallido
+            PRINT 'Inicio de sesión fallido. Credenciales incorrectas.'
+        END
+
+        -- Cometer la transacción
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        -- En caso de error, imprimir mensaje de error y hacer un ROLLBACK
+        PRINT 'Se produjo un error durante el inicio de sesión.';
+        ROLLBACK TRANSACTION;
+    END CATCH
+END;
+
+EXEC IniciarSesionPersonal "ADSK", "ASSAS"
